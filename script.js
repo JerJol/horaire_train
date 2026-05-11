@@ -191,6 +191,28 @@ class TrainScheduleApp {
     renderTrainsList(type, trains = []) {
         const container = document.getElementById(`${type}-trains`);
         const stations = this.getDisplayStations(type);
+        
+        if (!trains || trains.length === 0) {
+            container.innerHTML = `
+                <div class="loading">
+                    ${type === 'outbound' ? 'Aucun train trouvé' : 'Aucun train retour trouvé'}
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = trains.map(train => `
+            <div class="train-item">
+                <div class="train-info">
+                    <div>
+                        <div class="train-time">${train.time}</div>
+                        <div class="train-route">${stations.departure} → ${train.destination}</div>
+                    </div>
+                    <div class="train-duration">${train.duration}</div>
+                </div>
+            </div>
+        `).join('');
+    }
 
     showTab(tabName) {
         document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
