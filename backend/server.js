@@ -84,6 +84,8 @@ app.get('/api/trains', async (req, res) => {
         
         const datetimeStr = searchTime.toISOString().replace(/[-:]/g, '').slice(0, 15);
         
+        const filterTime = searchTime > now ? searchTime : now;
+        
         const journeysData = await callNavitia(
             `/coverage/sncf/journeys?from=${depStation.id}&to=${arrStation.id}&datetime=${datetimeStr}&datetime_represents=departure&max_duration=14400&count=10&depth=3`
         );
@@ -110,8 +112,6 @@ const trains = [];
             const firstJourney = journeysData.journeys[0];
             const transportSection = firstJourney?.sections?.find(sec => sec.type === 'public_transport');
             const firstSectionTrainCode = transportSection?.display_informations?.headsign || transportSection?.display_informations?.code || '';
-            
-            const filterTime = searchTime > now ? searchTime : now;
             
             const validJourneys = journeysData.journeys.filter(j => {
                 const depTime = j.departure_date_time || '';
