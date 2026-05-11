@@ -76,57 +76,79 @@ class TrainScheduleApp {
         this.departureStation = departure;
         this.arrivalStation = arrival;
         this.searchDateTime = datetime;
+        this.currentOffset = 0;
+        this.cumulativeOutboundTrains = [];
+        this.cumulativeReturnTrains = [];
 
         try {
-            const outboundTrains = await this.fetchTrainSchedule(departure, arrival, datetime);
-            const returnTrains = await this.fetchTrainSchedule(arrival, departure, datetime);
-
-            this.renderTrainsList('outbound', outboundTrains);
-            this.renderTrainsList('return', returnTrains);
+            await this.loadTrains(departure, arrival, datetime, 0);
         } catch (error) {
             this.showError('Erreur lors de la recherche des horaires: ' + error.message);
         }
     }
 
-    async fetchTrainSchedule(departure, arrival, datetime) {
-        const API_KEY = 'YOUR_SNCF_API_KEY';
-        const url = `https://api.sncf.com/v1/schedules?departure_station=${departure}&arrival_station=${arrival}&datetime=${datetime}`;
-
+    async loadTrains(departure, arrival, datetime, offset) {
         try {
-            const response = await fetch(url, {
-                headers: {
-                    'Authorization': `Bearer ${API_KEY}`
-                }
-            });
-
+            const response = await fetch(`http://localhost:3000/api/trains?departure=${encodeURIComponent(departure)}&arrival=${encodeURIComponent(arrival)}&datetime=${datetime}&offset=${offset}`);
+            
             if (!response.ok) {
-                throw new Error('Réponse API non valide');
+                throw new Error(`Erreur: ${response.status}`);
             }
+            
+            const data = await response.json();
+            console.log('API Response:', JSON.stringify(data, null, 2));
+            
+            if (offset === 0) {
+                this.cumulativeOutboundTrains = data.trains || [];
+                this.cumulativeReturnTrains = data.returnTrains || [];
+            } else {
+                this.cumulativeOutboundTrains = [...(this.cumulativeOutboundTrains || []), ...(data.trains || [])];
+                this.cumulativeReturnTrains = [...(this.cumulativeReturnTrains || []), ...(data.returnTrains || [])];
+            }
+            
+            this.lastOutboundTrains = this.cumulativeOutboundTrains;
+            this.lastReturnTrains = this.cumulativeReturnTrains;
+            this.currentOffset = data.offset || 0;
+            
+            this.renderTrainsList('outbound', this.lastOutboundTrains, this.currentOffset, () => this.loadNextTrains(departure, arrival, datetime));
+            this.renderTrainsList('return', this.lastReturnTrains, this.currentOffset, () => this.loadNextTrains(departure, arrival, datetime));
+        } catch (error) {
+            this.showError('Erreur lors du chargement: ' + error.message);
+        }
+    }
 
+    async loadNextTrains(departure, arrival, datetime) {
+        const nextOffset = this.currentOffset + 1;
+        await this.loadTrains(departure, arrival, datetime, nextOffset);
+    }
+
+    async loadNextTrainsFromUI() {
+        if (this.departureStation && this.arrivalStation && this.searchDateTime) {
+            await this.loadNextTrains(this.departureStation, this.arrivalStation, this.searchDateTime);
+        }
+    }
+
+    async fetchTrainSchedule(departure, arrival, datetime) {
+        try {
+            const response = await fetch(`http://localhost:3000/api/trains?departure=${encodeURIComponent(departure)}&arrival=${encodeURIComponent(arrival)}&datetime=${datetime}`);
+            
+            if (!response.ok) {
+                throw new Error(`Erreur: ${response.status}`);
+            }
+            
             const data = await response.json();
             return this.processTrainData(data);
         } catch (error) {
-            console.error('Erreur API:', error);
+            console.error('Erreur API:', error.message);
             return this.generateMockData(departure, arrival);
         }
     }
 
     processTrainData(apiData) {
-        const trains = [];
-        const limit = 5;
-
-        if (apiData.schedules && apiData.schedules.length > 0) {
-            apiData.schedules.slice(0, limit).forEach(schedule => {
-                trains.push({
-                    time: schedule.departure_time,
-                    destination: schedule.arrival_station,
-                    duration: schedule.duration || 'Durée non disponible',
-                    trainNumber: schedule.train_number || 'N/A'
-                });
-            });
+        if (apiData.trains) {
+            return apiData.trains;
         }
-
-        return trains;
+        return [];
     }
 
     generateMockData(departure, arrival) {
@@ -149,7 +171,26 @@ class TrainScheduleApp {
         return mockTrains;
     }
 
-    renderTrainsList(type, trains = []) {
+    showNotice() {
+        const notice = document.createElement('div');
+        notice.className = 'notice';
+        notice.innerHTML = `
+            <div class="notice-content">
+                <strong>⚠️ Information</strong><br>
+                L'application utilise actuellement des données de démonstration.<br>
+                Pour obtenir des horaires réels, veuillez obtenir une clé API SNCF et la configurer dans le code.
+            </div>
+        `;
+        
+        const container = document.querySelector('.container');
+        container.insertBefore(notice, container.firstChild);
+        
+        setTimeout(() => {
+            notice.remove();
+        }, 10000);
+    }
+
+    renderTrainsList(type, trains = [], offset = 0, onNext = null) {
         const container = document.getElementById(`${type}-trains`);
         const stations = this.getDisplayStations(type);
         
@@ -162,17 +203,18 @@ class TrainScheduleApp {
             return;
         }
 
-        container.innerHTML = trains.map(train => `
-            <div class="train-item">
+        container.innerHTML = `<div class="trains-results">` + trains.map(train => `
+            <div class="train-item" onclick="app.showJourneyDetails('${type}', ${train.id})">
                 <div class="train-info">
                     <div>
-                        <div class="train-time">${train.time}</div>
-                        <div class="train-route">${stations.departure} → ${train.destination}</div>
+                        <div class="train-time">${train.time || '--:--'}${train.arrivalTime && train.arrivalTime !== train.time && train.arrivalTime !== '--' ? ' → ' + train.arrivalTime : ''}</div>
+                        <div class="train-route">${train.line ? '[' + train.line + '] ' : ''}${train.departure || stations.departure} → ${train.destination}</div>
                     </div>
-                    <div class="train-duration">${train.duration}</div>
+                    <div class="train-duration">${train.duration || ''}</div>
                 </div>
+                <div id="details-${type}-${train.id}" class="train-details" style="display: none;"></div>
             </div>
-        `).join('');
+        `).join('') + `<button class="next-btn" onclick="app.loadNextTrainsFromUI()">Suivant →</button></div>`;
     }
 
     getDisplayStations(type) {
@@ -186,32 +228,6 @@ class TrainScheduleApp {
             departure: this.departureStation,
             arrival: this.arrivalStation
         };
-    }
-
-    renderTrainsList(type, trains = []) {
-        const container = document.getElementById(`${type}-trains`);
-        const stations = this.getDisplayStations(type);
-        
-        if (!trains || trains.length === 0) {
-            container.innerHTML = `
-                <div class="loading">
-                    ${type === 'outbound' ? 'Aucun train trouvé' : 'Aucun train retour trouvé'}
-                </div>
-            `;
-            return;
-        }
-
-        container.innerHTML = trains.map(train => `
-            <div class="train-item">
-                <div class="train-info">
-                    <div>
-                        <div class="train-time">${train.time}</div>
-                        <div class="train-route">${stations.departure} → ${train.destination}</div>
-                    </div>
-                    <div class="train-duration">${train.duration}</div>
-                </div>
-            </div>
-        `).join('');
     }
 
     showTab(tabName) {
@@ -280,6 +296,55 @@ class TrainScheduleApp {
             errorDiv.remove();
         }, 5000);
     }
+
+    formatTime(timeStr) {
+        if (!timeStr || timeStr.length < 4) return '--:--';
+        const clean = timeStr.toString().replace(/\D/g, '');
+        if (clean.length >= 4) {
+            return clean.slice(0, 2) + ':' + clean.slice(2, 4);
+        }
+        return timeStr;
+    }
+
+    showJourneyDetails(type, trainId) {
+        const allDetails = document.querySelectorAll('.train-details');
+        allDetails.forEach(el => el.style.display = 'none');
+        
+        const trains = type === 'outbound' ? this.lastOutboundTrains : this.lastReturnTrains;
+        if (!trains || !trains[trainId]) return;
+        
+        const train = trains[trainId];
+        const detailsEl = document.getElementById(`details-${type}-${trainId}`);
+        if (!train.sections || train.sections.length === 0) {
+            detailsEl.innerHTML = '<div class="detail-section">Aucun détail disponible</div>';
+        } else {
+            let html = '';
+            train.sections.forEach((sec, idx) => {
+                if (sec.stops && sec.stops.length > 0) {
+                    html += `<div class="detail-section-title">${sec.mode || sec.type}</div>`;
+                    html += sec.stops.map(stop => `
+                        <div class="detail-stop">
+                            <span class="detail-stop-time">${this.formatTime(stop.time)}</span>
+                            <span class="detail-stop-name">${stop.name}</span>
+                        </div>
+                    `).join('');
+                } else {
+                    if (sec.departure && sec.departure !== sec.arrival) {
+                        html += `
+                            <div class="detail-section">
+                                <span class="detail-mode">${sec.mode || sec.type}</span>
+                                <span class="detail-time">${sec.departureTime || '--:--'}</span>
+                                <span class="detail-station">${sec.departure}</span>
+                                ${sec.arrival ? `→ <span class="detail-station">${sec.arrival}</span> <span class="detail-time">${sec.arrivalTime || '--:--'}</span>` : ''}
+                            </div>
+                        `;
+                    }
+                }
+            });
+            detailsEl.innerHTML = html;
+        }
+        detailsEl.style.display = 'block';
+    }
 }
 
 const app = new TrainScheduleApp();
@@ -298,6 +363,17 @@ function closeSettings() {
 
 function saveSettings() {
     app.saveSettings();
+}
+
+function setNow() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    
+    document.getElementById('datetime').value = `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
 function searchTrains() {

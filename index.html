@@ -8,7 +8,10 @@
 </head>
 <body>
     <div class="container">
-        <h1>Horaires Trains SNCF</h1>
+        <div class="header">
+            <h1>Horaires Trains</h1>
+            <button class="settings-icon-btn" onclick="showSettings()" title="Paramètres">⚙️</button>
+        </div>
         
         <div class="search-section">
             <div class="form-group">
@@ -21,7 +24,10 @@
             </div>
             <div class="form-group">
                 <label for="datetime">Date et heure:</label>
-                <input type="datetime-local" id="datetime">
+                <div class="datetime-input">
+                    <input type="datetime-local" id="datetime">
+                    <button type="button" onclick="setNow()" class="now-btn" title="Mettre à l'heure actuelle">⌚</button>
+                </div>
             </div>
             <button onclick="searchTrains()" class="search-btn">Rechercher</button>
         </div>
@@ -42,8 +48,6 @@
                 <!-- Trains retour seront affichés ici -->
             </div>
         </div>
-
-        <button class="settings-btn" onclick="showSettings()">⚙️ Paramètres</button>
     </div>
 
     <div id="settings-modal" class="modal">
