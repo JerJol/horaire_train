@@ -77,6 +77,8 @@ class TrainScheduleApp {
         this.arrivalStation = arrival;
         this.searchDateTime = datetime;
         this.currentOffset = 0;
+        this.totalTrains = 0;
+        this.totalReturnTrains = 0;
         this.cumulativeOutboundTrains = [];
         this.cumulativeReturnTrains = [];
 
@@ -109,9 +111,14 @@ class TrainScheduleApp {
             this.lastOutboundTrains = this.cumulativeOutboundTrains;
             this.lastReturnTrains = this.cumulativeReturnTrains;
             this.currentOffset = data.offset || 0;
+            this.totalTrains = data.totalTrains || 0;
+            this.totalReturnTrains = data.totalReturnTrains || 0;
             
-            this.renderTrainsList('outbound', this.lastOutboundTrains, this.currentOffset, () => this.loadNextTrains(departure, arrival, datetime));
-            this.renderTrainsList('return', this.lastReturnTrains, this.currentOffset, () => this.loadNextTrains(departure, arrival, datetime));
+            const hasMoreOutbound = this.lastOutboundTrains.length < this.totalTrains;
+            const hasMoreReturn = this.lastReturnTrains.length < this.totalReturnTrains;
+            
+            this.renderTrainsList('outbound', this.lastOutboundTrains, hasMoreOutbound ? () => this.loadNextTrains(departure, arrival, datetime) : null);
+            this.renderTrainsList('return', this.lastReturnTrains, hasMoreReturn ? () => this.loadNextTrains(departure, arrival, datetime) : null);
         } catch (error) {
             this.showError('Erreur lors du chargement: ' + error.message);
         }
