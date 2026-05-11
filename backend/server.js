@@ -111,10 +111,12 @@ const trains = [];
             const transportSection = firstJourney?.sections?.find(sec => sec.type === 'public_transport');
             const firstSectionTrainCode = transportSection?.display_informations?.headsign || transportSection?.display_informations?.code || '';
             
+            const filterTime = searchTime > now ? searchTime : now;
+            
             const validJourneys = journeysData.journeys.filter(j => {
                 const depTime = j.departure_date_time || '';
                 const depDate = new Date(depTime.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})/, '$1-$2-$3T$4:$5:$6'));
-                return depDate >= searchTime;
+                return depDate >= filterTime;
             });
             
             validJourneys.slice(0, 3).forEach((journey, idx) => {
@@ -199,7 +201,7 @@ const trains = [];
             const validReturnJourneys = returnJourneysData.journeys.filter(j => {
                 const depTime = j.departure_date_time || '';
                 const depDate = new Date(depTime.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})/, '$1-$2-$3T$4:$5:$6'));
-                return depDate >= searchTime;
+                return depDate >= filterTime;
             });
             
             const returnTrainCode = validReturnJourneys[0]?.sections?.find(sec => sec.type === 'public_transport')?.display_informations?.headsign || '';
