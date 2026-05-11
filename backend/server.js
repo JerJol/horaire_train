@@ -82,6 +82,16 @@ app.get('/api/trains', async (req, res) => {
             searchTime.setHours(now.getHours(), now.getMinutes() + 5, 0, 0);
         }
         
+        const lastTrain = journeysData.journeys?.[journeysData.journeys.length - 1];
+        if (lastTrain && trainOffset > 0) {
+            const lastDepTime = lastTrain.departure_date_time;
+            if (lastDepTime) {
+                const lastTime = new Date(lastDepTime.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})/, '$1-$2-$3T$4:$5:$6'));
+                lastTime.setMinutes(lastTime.getMinutes() + 5);
+                searchTime.setTime(lastTime.getTime());
+            }
+        }
+        
         const datetimeStr = searchTime.toISOString().replace(/[-:]/g, '').slice(0, 15);
         
         const journeysData = await callNavitia(
