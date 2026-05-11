@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Horaires Trains SNCF</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Horaires Trains SNCF</h1>
+        
+        <div class="search-section">
+            <div class="form-group">
+                <label for="departure">Gare de départ:</label>
+                <input type="text" id="departure" placeholder="Ex: Paris">
+            </div>
+            <div class="form-group">
+                <label for="arrival">Gare d'arrivée:</label>
+                <input type="text" id="arrival" placeholder="Ex: Lyon">
+            </div>
+            <div class="form-group">
+                <label for="datetime">Date et heure:</label>
+                <input type="datetime-local" id="datetime">
+            </div>
+            <button onclick="searchTrains()" class="search-btn">Rechercher</button>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="showTab('outbound')">Aller</button>
+            <button class="tab-btn" onclick="showTab('return')">Retour</button>
+        </div>
+
+        <div class="tab-content active" id="outbound-tab">
+            <div id="outbound-trains" class="trains-list">
+                <!-- Trains aller seront affichés ici -->
+            </div>
+        </div>
+
+        <div class="tab-content" id="return-tab">
+            <div id="return-trains" class="trains-list">
+                <!-- Trains retour seront affichés ici -->
+            </div>
+        </div>
+
+        <button class="settings-btn" onclick="showSettings()">⚙️ Paramètres</button>
+    </div>
+
+    <div id="settings-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeSettings()">&times;</span>
+            <h2>Paramètres</h2>
+            <div class="form-group">
+                <label for="default-departure">Gare de départ par défaut:</label>
+                <input type="text" id="default-departure" placeholder="Ex: Paris">
+            </div>
+            <div class="form-group">
+                <label for="default-arrival">Gare d'arrivée par défaut:</label>
+                <input type="text" id="default-arrival" placeholder="Ex: Lyon">
+            </div>
+            <button onclick="saveSettings()" class="save-btn">Enregistrer</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
