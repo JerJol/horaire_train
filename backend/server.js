@@ -77,19 +77,9 @@ app.get('/api/trains', async (req, res) => {
         const dt = new Date(datetime);
         const now = new Date();
         
-        const searchTime = new Date(dt);
+        let searchTime = new Date(dt);
         if (searchTime < now) {
             searchTime.setHours(now.getHours(), now.getMinutes() + 5, 0, 0);
-        }
-        
-        const lastTrain = journeysData.journeys?.[journeysData.journeys.length - 1];
-        if (lastTrain && trainOffset > 0) {
-            const lastDepTime = lastTrain.departure_date_time;
-            if (lastDepTime) {
-                const lastTime = new Date(lastDepTime.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})/, '$1-$2-$3T$4:$5:$6'));
-                lastTime.setMinutes(lastTime.getMinutes() + 5);
-                searchTime.setTime(lastTime.getTime());
-            }
         }
         
         const datetimeStr = searchTime.toISOString().replace(/[-:]/g, '').slice(0, 15);
@@ -97,6 +87,23 @@ app.get('/api/trains', async (req, res) => {
         const journeysData = await callNavitia(
             `/coverage/sncf/journeys?from=${depStation.id}&to=${arrStation.id}&datetime=${datetimeStr}&datetime_represents=departure&max_duration=14400&count=10&depth=3`
         );
+
+        if (trainOffset > 0 && journeysData.journeys?.length > 0) {
+            const lastTrain = journeysData.journeys[journeysData.journeys.length - 1];
+            const lastDepTime = lastTrain?.departure_date_time;
+            if (lastDepTime) {
+                const lastTime = new Date(lastDepTime.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})/, '$1-$2-$3T$4:$5:$6'));
+                lastTime.setMinutes(lastTime.getMinutes() + 5);
+                
+                const nextSearchTime = lastTime.toISOString().replace(/[-:]/g, '').slice(0, 15);
+                
+                const nextJourneysData = await callNavitia(
+                    `/coverage/sncf/journeys?from=${depStation.id}&to=${arrStation.id}&datetime=${nextSearchTime}&datetime_represents=departure&max_duration=14400&count=10&depth=3`
+                );
+                
+                journeysData.journeys = [...journeysData.journeys, ...(nextJourneysData.journeys || [])];
+            }
+        }
 
 const trains = [];
         if (journeysData.journeys) {
