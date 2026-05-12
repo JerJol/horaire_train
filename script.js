@@ -360,45 +360,22 @@ class TrainScheduleApp {
         }
         console.log('Train:', train.time, 'trainNumber:', train.trainNumber, 'sections:', JSON.stringify(train.sections, null, 2));
         if (!train.sections || train.sections.length === 0) {
-            detailsEl.innerHTML = '<div class="detail-section">Aucun détail disponible - sections vides</div>';
+            detailsEl.innerHTML = '<div class="detail-section">Aucun détail disponible</div>';
         } else {
-            const allTrainNumbers = train.sections
-                .map(sec => sec.display_informations?.code || '')
-                .filter(num => num)
-                .filter((num, idx, arr) => arr.indexOf(num) === idx);
             let html = '';
-            if (allTrainNumbers.length > 0) {
-                html += `<div class="detail-train-number">train fluo n° ${allTrainNumbers.join(' + ')}</div>`;
-            }
-            train.sections.forEach((sec, idx) => {
-                if (sec.stops && sec.stops.length > 0) {
-                    let secTrainNum = sec.display_informations?.code || sec.display_informations?.headsign || '';
-                    if (!secTrainNum && sec.links) {
-                        const vjLink = sec.links.find(l => l.type === 'vehicle_journey');
-                        if (vjLink?.id) {
-                            const match = vjLink.id.match(/vehicle_journey:SNCF:\d{4}-\d{2}-\d{2}:(\d+):/);
-                            if (match) secTrainNum = match[1];
-                        }
-                    }
-                    if (secTrainNum) {
-                        html += `<div class="detail-section-title">train fluo n° ${secTrainNum}</div>`;
-                    }
-                    html += sec.stops.map(stop => `
-                        <div class="detail-stop">
-                            <span class="detail-stop-time">${this.formatTime(stop.time)}</span>
-                            <span class="detail-stop-name">${stop.name}</span>
-                        </div>
-                    `).join('');
-                } else if (sec.departure && sec.departure !== sec.arrival) {
-                    html += `
-                        <div class="detail-section">
-                            <span class="detail-mode">${sec.mode || sec.type}</span>
-                            <span class="detail-time">${sec.departureTime || '--:--'}</span>
-                            <span class="detail-station">${sec.departure}</span>
-                            ${sec.arrival ? `→ <span class="detail-station">${sec.arrival}</span> <span class="detail-time">${sec.arrivalTime || '--:--'}</span>` : ''}
-                        </div>
-                    `;
+            const publicTransportSections = train.sections.filter(sec => sec.type === 'public_transport' && sec.stops && sec.stops.length > 0);
+            
+            publicTransportSections.forEach((sec) => {
+                const trainNum = sec.display_informations?.code || train.trainNumber || '';
+                if (trainNum) {
+                    html += `<div class="detail-section-title">train fluo n° ${trainNum}</div>`;
                 }
+                html += sec.stops.map(stop => `
+                    <div class="detail-stop">
+                        <span class="detail-stop-time">${this.formatTime(stop.time)}</span>
+                        <span class="detail-stop-name">${stop.name}</span>
+                    </div>
+                `).join('');
             });
             detailsEl.innerHTML = html;
         }
