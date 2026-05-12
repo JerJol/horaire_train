@@ -105,12 +105,22 @@ class TrainScheduleApp {
             const data = await response.json();
             console.log('API Response:', JSON.stringify(data, null, 2));
             
+            const deduplicate = (trains) => {
+                const seen = new Set();
+                return (trains || []).filter(t => {
+                    const key = `${t.time}-${t.arrivalTime}-${t.trainNumber}`;
+                    if (seen.has(key)) return false;
+                    seen.add(key);
+                    return true;
+                });
+            };
+            
             if (offset === 0) {
-                this.cumulativeOutboundTrains = (data.trains || []).sort((a, b) => (a.time || '').localeCompare(b.time || ''));
-                this.cumulativeReturnTrains = (data.returnTrains || []).sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+                this.cumulativeOutboundTrains = deduplicate(data.trains || []).sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+                this.cumulativeReturnTrains = deduplicate(data.returnTrains || []).sort((a, b) => (a.time || '').localeCompare(b.time || ''));
             } else {
-                this.cumulativeOutboundTrains = [...(this.cumulativeOutboundTrains || []), ...(data.trains || [])].sort((a, b) => (a.time || '').localeCompare(b.time || ''));
-                this.cumulativeReturnTrains = [...(this.cumulativeReturnTrains || []), ...(data.returnTrains || [])].sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+                this.cumulativeOutboundTrains = deduplicate([...(this.cumulativeOutboundTrains || []), ...(data.trains || [])]).sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+                this.cumulativeReturnTrains = deduplicate([...(this.cumulativeReturnTrains || []), ...(data.returnTrains || [])]).sort((a, b) => (a.time || '').localeCompare(b.time || ''));
             }
             
             this.lastOutboundTrains = this.cumulativeOutboundTrains;

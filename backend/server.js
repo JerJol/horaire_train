@@ -130,8 +130,8 @@ app.get('/api/trains', async (req, res) => {
             allJourneys.push(...fetchedJourneys);
         }
         
-        const trainsPerPage = 3;
-        const startIdx = trainOffset * trainsPerPage;
+        const trainsPerPage = trainOffset === 0 ? 3 : 1;
+        const startIdx = trainOffset === 0 ? 0 : 3 + (trainOffset - 1);
         
         const trains = [];
         if (allJourneys.length > 0) {
