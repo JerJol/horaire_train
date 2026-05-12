@@ -83,8 +83,43 @@ if (!depStationData.id || !arrStationData.id) {
         const arrHours = arrTime.includes('T') ? arrTime.split('T')[1].slice(0, 2) : '--';
         const arrMinutes = arrTime.includes('T') ? arrTime.split('T')[1].slice(2, 4) : '--';
 
+        const formatTime = (timeStr) => {
+            if (!timeStr) return '--:--';
+            const str = String(timeStr);
+            if (str.length === 5) return str.slice(0,2) + ':' + str.slice(2,4);
+            if (str.length === 4) return '0' + str.slice(0,1) + ':' + str.slice(1,3);
+            return str;
+        };
+        
+        const formatSectionTime = (timeVal) => {
+            if (!timeVal) return '--:--';
+            const val = String(timeVal);
+            if (val.length >= 4) return val.slice(0,2) + ':' + val.slice(2,4);
+            return val;
+        };
+        
         const publicTransportSections = journey.sections?.filter(sec => sec.type === 'public_transport') || [];
-        const trainCode = publicTransportSections.map(sec => sec.display_informations?.code || '').filter(Boolean).join(' + ') || 'Train';
+        const trainCode = publicTransportSections.map(sec => 
+            sec.display_informations?.code || 
+            sec.display_informations?.label ||
+            sec.line ||
+            (sec.mode !== 'walking' ? sec.mode : '')
+        ).filter(Boolean).join(' + ') || 'Train';
+        
+        const formattedSections = (journey.sections || []).map(sec => {
+            if (sec.stops && sec.stops.length > 0) {
+                return {
+                    ...sec,
+                    display_informations: { code: trainCode },
+                    stops: sec.stops.map(stop => ({
+                        name: stop.name,
+                        time: formatSectionTime(stop.arrivalTime || stop.departure_time),
+                        arrivalTime: formatSectionTime(stop.arrivalTime)
+                    }))
+                };
+            }
+            return sec;
+        });
         
         return {
             id: idx,
@@ -94,7 +129,7 @@ if (!depStationData.id || !arrStationData.id) {
             departure: depStationData.name,
             duration: `${Math.floor(journey.duration / 60)}min`,
             trainNumber: trainCode,
-            sections: journey.sections || []
+            sections: formattedSections
         };
     });
 
