@@ -100,21 +100,25 @@ if (!depStationData.id || !arrStationData.id) {
         
         const publicTransportSections = journey.sections?.filter(sec => sec.type === 'public_transport') || [];
         const trainCode = publicTransportSections.map(sec => 
-            sec.display_informations?.code || 
+            sec.display_informations?.headsign ||
+            sec.display_informations?.trip_short_name ||
+            sec.display_informations?.code ||
             sec.display_informations?.label ||
-            sec.line ||
-            (sec.mode !== 'walking' ? sec.mode : '')
+            ''
         ).filter(Boolean).join(' + ') || 'Train';
         
         const formattedSections = (journey.sections || []).map(sec => {
-            if (sec.stops && sec.stops.length > 0) {
+            const isPublicTransport = sec.type === 'public_transport';
+            const trainNum = sec.display_informations?.headsign || sec.display_informations?.trip_short_name || '';
+            
+            if (isPublicTransport && sec.stop_date_times && sec.stop_date_times.length > 0) {
                 return {
                     ...sec,
-                    display_informations: { code: trainCode },
-                    stops: sec.stops.map(stop => ({
-                        name: stop.name,
-                        time: formatSectionTime(stop.arrivalTime || stop.departure_time),
-                        arrivalTime: formatSectionTime(stop.arrivalTime)
+                    display_informations: { code: trainNum },
+                    stops: sec.stop_date_times.map(stop => ({
+                        name: stop.stop_point?.name || stop.stop_point?.label || '',
+                        time: formatSectionTime(stop.departure_date_time),
+                        arrivalTime: formatSectionTime(stop.arrival_date_time)
                     }))
                 };
             }
