@@ -109,9 +109,12 @@ async function searchTrains(departure, arrival, datetime, offset = 0, lastTime =
         return { trains: [], returnTrains: [], totalTrains: 0, totalReturnTrains: 0 };
     }
 
+    console.log('DEBUG - datetime:', datetimeStr, 'offset:', offset, 'journeys count:', journeysData.journeys?.length || 0);
+    
     const allJourneys = journeysData.journeys || [];
     const trainsPerPage = trainOffset === 0 ? 3 : 1;
     const startIdx = trainOffset === 0 ? 0 : 3 + (trainOffset - 1);
+    console.log('DEBUG - returning trains from index', startIdx, 'to', startIdx + trainsPerPage);
 
     const trains = allJourneys.slice(startIdx, startIdx + trainsPerPage).map((journey, idx) => ({
         id: idx,
