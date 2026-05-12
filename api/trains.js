@@ -1,6 +1,6 @@
 const fetch = require('node-fetch');
 
-const NAVITIA_TOKEN = process.env.NA VITIA_TOKEN || 'ton_token_navitia';
+const NAVITIA_TOKEN = process.env.NAVITIA_TOKEN || '';
 
 async function callNavitia(endpoint) {
     const response = await fetch(`https://api.navitia.io/v1${endpoint}`, {
@@ -13,6 +13,7 @@ async function callNavitia(endpoint) {
 }
 
 module.exports = async function handler(req, res) {
+    try {
     const { departure, arrival, datetime, offset, lastTime } = req.query;
     
     if (!departure || !arrival || !datetime) {
@@ -65,10 +66,14 @@ module.exports = async function handler(req, res) {
     });
 
     res.json({
-        trains,
-        returnTrains: [],
-        offset: trainOffset,
-        totalTrains: allJourneys.length,
-        lastDepartureTime: trains.length > 0 ? trains[trains.length - 1].time : null
-    });
+            trains,
+            returnTrains: [],
+            offset: trainOffset,
+            totalTrains: allJourneys.length,
+            lastDepartureTime: trains.length > 0 ? trains[trains.length - 1].time : null
+        });
+    } catch (error) {
+        console.error('Error:', error);
+        res.status(500).json({ error: error.message });
+    }
 };
