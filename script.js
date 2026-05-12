@@ -364,9 +364,10 @@ class TrainScheduleApp {
         } else {
             let html = '';
             const publicTransportSections = train.sections.filter(sec => sec.type === 'public_transport' && sec.stops && sec.stops.length > 0);
+            const trainNumbers = (train.trainNumber || '').split(' + ');
             
-            publicTransportSections.forEach((sec) => {
-                const trainNum = sec.display_informations?.code || train.trainNumber || '';
+            publicTransportSections.forEach((sec, secIdx) => {
+                const trainNum = trainNumbers[secIdx] || trainNumbers[0] || '';
                 if (trainNum) {
                     html += `<div class="detail-section-title">train fluo n° ${trainNum}</div>`;
                 }
