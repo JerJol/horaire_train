@@ -16,6 +16,7 @@ async function callNavitia(endpoint) {
 
 module.exports = async function handler(req, res) {
     try {
+    console.log('Token present:', !!NAVITIA_TOKEN, 'Length:', NAVITIA_TOKEN?.length);
     const { departure, arrival, datetime, offset, lastTime } = req.query;
     
     if (!departure || !arrival || !datetime) {
@@ -42,13 +43,25 @@ if (!depStationData.id || !arrStationData.id) {
 
     let datetimeStr = searchTime.toISOString().replace(/[-:]/g, '').slice(0, 15);
     
-    let currentSearchTime = trainOffset > 0 && lastTime ? lastTime : datetimeStr;
+    let currentSearchTime = datetimeStr;
+    if (trainOffset > 0 && lastTime) {
+        const [hours, minutes] = lastTime.split(':');
+        const lastDate = new Date(datetime);
+        lastDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+        currentSearchTime = lastDate.toISOString().replace(/[-:]/g, '').slice(0, 15);
+    }
     
     const journeysData = await callNavitia(
         `/coverage/sncf/journeys?from=${depStationData.id}&to=${arrStationData.id}&datetime=${currentSearchTime}&datetime_represents=departure&max_duration=14400&count=20&depth=3`
     );
 
-    if (!journeysData.journeys || journeysData.journeys.length === 0) {
+    let returnJourneys = [];
+    const returnJourneysData = await callNavitia(
+        `/coverage/sncf/journeys?from=${arrStationData.id}&to=${depStationData.id}&datetime=${datetimeStr}&datetime_represents=departure&max_duration=14400&count=20&depth=3`
+    );
+    returnJourneys = returnJourneysData.journeys || [];
+
+    if ((!journeysData.journeys || journeysData.journeys.length === 0) && returnJourneys.length === 0) {
         return res.json({
             trains: [],
             returnTrains: [],
@@ -82,11 +95,32 @@ if (!depStationData.id || !arrStationData.id) {
         };
     });
 
+    const returnTrainsList = returnJourneys.slice(0, 3).map((journey, idx) => {
+        const depTime = journey.departure_date_time || '';
+        const arrTime = journey.arrival_date_time || '';
+        const depHours = depTime.includes('T') ? depTime.split('T')[1].slice(0, 2) : '--';
+        const depMinutes = depTime.includes('T') ? depTime.split('T')[1].slice(2, 4) : '--';
+        const arrHours = arrTime.includes('T') ? arrTime.split('T')[1].slice(0, 2) : '--';
+        const arrMinutes = arrTime.includes('T') ? arrTime.split('T')[1].slice(2, 4) : '--';
+        
+        return {
+            id: idx,
+            time: `${depHours}:${depMinutes}`,
+            arrivalTime: `${arrHours}:${arrMinutes}`,
+            destination: depStationData.name,
+            departure: arrStationData.name,
+            duration: `${Math.floor(journey.duration / 60)}min`,
+            trainNumber: journey.sections?.[0]?.display_informations?.code || 'Train',
+            sections: journey.sections || []
+        };
+    });
+
     res.json({
             trains,
-            returnTrains: [],
+            returnTrains: returnTrainsList,
             offset: trainOffset,
             totalTrains: allJourneys.length,
+            totalReturnTrains: returnJourneys.length,
             lastDepartureTime: trains.length > 0 ? trains[trains.length - 1].time : null
         });
     } catch (error) {
