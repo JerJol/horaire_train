@@ -365,9 +365,12 @@ let transportMode = train.sections.find(s => s.mode?.toLowerCase() !== 'walking'
         let html = `<div class="detail-train-number">${trainNumHtml}</div>`;
         train.sections.forEach((sec, idx) => {
             if (sec.stops && sec.stops.length > 0) {
-                if (idx > 0) {
-                    const secTrainNum = sec.display_informations?.code || sec.type || '';
-                    html += `<div class="detail-section-title">${secTrainNum}</div>`;
+                if (idx === 0 || (sec.type === 'public_transport')) {
+                    const secTrainNum = sec.display_informations?.code || '';
+                    const modeLabel = sec.type === 'public_transport' && secTrainNum 
+                        ? `train fluo n° ${secTrainNum}` 
+                        : (sec.mode || '');
+                    html += `<div class="detail-section-title">${modeLabel}</div>`;
                 }
                 html += sec.stops.map(stop => `
                     <div class="detail-stop">
