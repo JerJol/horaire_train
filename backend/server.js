@@ -86,40 +86,66 @@ app.get('/api/trains', async (req, res) => {
         
         const filterTime = searchTime > now ? searchTime : now;
         
-        const journeysData = await callNavitia(
-            `/coverage/sncf/journeys?from=${depStation.id}&to=${arrStation.id}&datetime=${datetimeStr}&datetime_represents=departure&max_duration=14400&count=10&depth=3`
+        const allJourneys = [];
+        
+        let currentSearchTime = datetimeStr;
+        
+        if (trainOffset > 0 && req.query.lastTime) {
+            currentSearchTime = req.query.lastTime;
+        }
+        
+        let fetchedJourneys = [];
+        
+        const fetchCount = 20;
+        
+        let journeysData = await callNavitia(
+            `/coverage/sncf/journeys?from=${depStation.id}&to=${arrStation.id}&datetime=${currentSearchTime}&datetime_represents=departure&max_duration=14400&count=${fetchCount}&depth=3`
         );
-
-        if (trainOffset > 0 && journeysData.journeys?.length > 0) {
-            const lastTrain = journeysData.journeys[journeysData.journeys.length - 1];
-            const lastDepTime = lastTrain?.departure_date_time;
-            if (lastDepTime) {
+        
+        if (journeysData.journeys?.length > 0) {
+            fetchedJourneys = journeysData.journeys;
+            
+            while (fetchedJourneys.length < (trainOffset + 1) * 3 && journeysData.journeys?.length > 0) {
+                const lastJourney = journeysData.journeys[journeysData.journeys.length - 1];
+                const lastDepTime = lastJourney?.departure_date_time;
+                
+                if (!lastDepTime) break;
+                
                 const lastTime = new Date(lastDepTime.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})/, '$1-$2-$3T$4:$5:$6'));
                 lastTime.setMinutes(lastTime.getMinutes() + 5);
                 
                 const nextSearchTime = lastTime.toISOString().replace(/[-:]/g, '').slice(0, 15);
                 
-                const nextJourneysData = await callNavitia(
-                    `/coverage/sncf/journeys?from=${depStation.id}&to=${arrStation.id}&datetime=${nextSearchTime}&datetime_represents=departure&max_duration=14400&count=10&depth=3`
+                journeysData = await callNavitia(
+                    `/coverage/sncf/journeys?from=${depStation.id}&to=${arrStation.id}&datetime=${nextSearchTime}&datetime_represents=departure&max_duration=14400&count=${fetchCount}&depth=3`
                 );
                 
-                journeysData.journeys = [...journeysData.journeys, ...(nextJourneysData.journeys || [])];
+                if (journeysData.journeys?.length > 0) {
+                    fetchedJourneys = [...fetchedJourneys, ...journeysData.journeys];
+                } else {
+                    break;
+                }
             }
+            
+            allJourneys.push(...fetchedJourneys);
         }
-
-const trains = [];
-        if (journeysData.journeys) {
-            const firstJourney = journeysData.journeys[0];
+        
+        const trainsPerPage = 3;
+        const startIdx = trainOffset * trainsPerPage;
+        
+        const trains = [];
+        if (allJourneys.length > 0) {
+            const firstJourney = allJourneys[0];
             const transportSection = firstJourney?.sections?.find(sec => sec.type === 'public_transport');
             const firstSectionTrainCode = transportSection?.display_informations?.headsign || transportSection?.display_informations?.code || '';
             
-            const validJourneys = journeysData.journeys.filter(j => {
+            const validJourneys = allJourneys.filter(j => {
                 const depTime = j.departure_date_time || '';
                 const depDate = new Date(depTime.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})/, '$1-$2-$3T$4:$5:$6'));
                 return depDate >= filterTime;
             });
             
-            validJourneys.slice(0, 3).forEach((journey, idx) => {
+            validJourneys.slice(startIdx, startIdx + trainsPerPage).forEach((journey, idx) => {
                 const depTime = journey.departure_date_time || '';
                 const arrTime = journey.arrival_date_time || '';
                 
@@ -189,16 +215,48 @@ const trains = [];
             });
         }
 
+        let allReturnJourneys = [];
+        
+        let returnFetchedJourneys = [];
+        
         const returnJourneysData = await callNavitia(
-            `/coverage/sncf/journeys?from=${arrStation.id}&to=${depStation.id}&datetime=${datetimeStr}&datetime_represents=departure&max_duration=14400&count=10&depth=3`
+            `/coverage/sncf/journeys?from=${arrStation.id}&to=${depStation.id}&datetime=${datetimeStr}&datetime_represents=departure&max_duration=14400&count=${fetchCount}&depth=3`
         );
+        
+        if (returnJourneysData.journeys?.length > 0) {
+            returnFetchedJourneys = returnJourneysData.journeys;
+            
+            while (returnFetchedJourneys.length < (trainOffset + 1) * 3 && returnJourneysData.journeys?.length > 0) {
+                const lastJourney = returnJourneysData.journeys[returnJourneysData.journeys.length - 1];
+                const lastDepTime = lastJourney?.departure_date_time;
+                
+                if (!lastDepTime) break;
+                
+                const lastTime = new Date(lastDepTime.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})/, '$1-$2-$3T$4:$5:$6'));
+                lastTime.setMinutes(lastTime.getMinutes() + 5);
+                
+                const nextSearchTime = lastTime.toISOString().replace(/[-:]/g, '').slice(0, 15);
+                
+                returnJourneysData = await callNavitia(
+                    `/coverage/sncf/journeys?from=${arrStation.id}&to=${depStation.id}&datetime=${nextSearchTime}&datetime_represents=departure&max_duration=14400&count=${fetchCount}&depth=3`
+                );
+                
+                if (returnJourneysData.journeys?.length > 0) {
+                    returnFetchedJourneys = [...returnFetchedJourneys, ...returnJourneysData.journeys];
+                } else {
+                    break;
+                }
+            }
+            
+            allReturnJourneys.push(...returnFetchedJourneys);
+        }
 
         const returnTrains = [];
-        if (returnJourneysData.journeys) {
-            const returnTransportSection = returnJourneysData.journeys[0]?.sections?.find(sec => sec.type === 'public_transport');
+        if (allReturnJourneys.length > 0) {
+            const returnTransportSection = allReturnJourneys[0]?.sections?.find(sec => sec.type === 'public_transport');
             const returnSectionTrainCode = returnTransportSection?.display_informations?.headsign || returnTransportSection?.display_informations?.code || '';
             
-            const validReturnJourneys = returnJourneysData.journeys.filter(j => {
+            const validReturnJourneys = allReturnJourneys.filter(j => {
                 const depTime = j.departure_date_time || '';
                 const depDate = new Date(depTime.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})/, '$1-$2-$3T$4:$5:$6'));
                 return depDate >= filterTime;
@@ -206,7 +264,7 @@ const trains = [];
             
             const returnTrainCode = validReturnJourneys[0]?.sections?.find(sec => sec.type === 'public_transport')?.display_informations?.headsign || '';
             
-            validReturnJourneys.slice(0, 3).forEach((journey, idx) => {
+            validReturnJourneys.slice(startIdx, startIdx + trainsPerPage).forEach((journey, idx) => {
                 const depTime = journey.departure_date_time || '';
                 const arrTime = journey.arrival_date_time || '';
                 
@@ -279,8 +337,8 @@ const trains = [];
         const allTrains = trains;
         const allReturnTrains = returnTrains;
         
-        const paginatedTrains = allTrains.slice(trainOffset * 3, trainOffset * 3 + 3);
-        const paginatedReturnTrains = allReturnTrains.slice(trainOffset * 3, trainOffset * 3 + 3);
+        const paginatedTrains = allTrains;
+        const paginatedReturnTrains = allReturnTrains;
         
         res.json({ 
             trains: paginatedTrains, 
