@@ -78,8 +78,12 @@ if (!depStationData.id || !arrStationData.id) {
     const formatSectionTime = (timeVal) => {
         if (!timeVal) return '--:--';
         const val = String(timeVal);
-        if (val.length >= 4) return val.slice(0,2) + ':' + val.slice(2,4);
-        return val;
+        let timePart = val;
+        if (val.includes('T')) {
+            timePart = val.split('T')[1] || val;
+        }
+        if (timePart.length >= 4) return timePart.slice(0,2) + ':' + timePart.slice(2,4);
+        return timePart;
     };
 
     const trains = allJourneys.slice(startIdx, startIdx + trainsPerPage).map((journey, idx) => {
