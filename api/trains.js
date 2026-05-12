@@ -74,6 +74,13 @@ if (!depStationData.id || !arrStationData.id) {
     const allJourneys = journeysData.journeys || [];
     const trainsPerPage = trainOffset === 0 ? 3 : 1;
     const startIdx = trainOffset === 0 ? 0 : 3 + (trainOffset - 1);
+    
+    const formatSectionTime = (timeVal) => {
+        if (!timeVal) return '--:--';
+        const val = String(timeVal);
+        if (val.length >= 4) return val.slice(0,2) + ':' + val.slice(2,4);
+        return val;
+    };
 
     const trains = allJourneys.slice(startIdx, startIdx + trainsPerPage).map((journey, idx) => {
         const depTime = journey.departure_date_time || '';
@@ -89,13 +96,6 @@ if (!depStationData.id || !arrStationData.id) {
             if (str.length === 5) return str.slice(0,2) + ':' + str.slice(2,4);
             if (str.length === 4) return '0' + str.slice(0,1) + ':' + str.slice(1,3);
             return str;
-        };
-        
-        const formatSectionTime = (timeVal) => {
-            if (!timeVal) return '--:--';
-            const val = String(timeVal);
-            if (val.length >= 4) return val.slice(0,2) + ':' + val.slice(2,4);
-            return val;
         };
         
         const publicTransportSections = journey.sections?.filter(sec => sec.type === 'public_transport') || [];
