@@ -358,7 +358,7 @@ class TrainScheduleApp {
             detailsEl.style.display = 'block';
             return;
         }
-        console.log('Train sections:', JSON.stringify(train.sections, null, 2));
+        console.log('Train:', train.time, 'trainNumber:', train.trainNumber, 'sections:', JSON.stringify(train.sections, null, 2));
         if (!train.sections || train.sections.length === 0) {
             detailsEl.innerHTML = '<div class="detail-section">Aucun détail disponible - sections vides</div>';
         } else {

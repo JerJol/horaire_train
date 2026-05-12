@@ -83,6 +83,9 @@ if (!depStationData.id || !arrStationData.id) {
         const arrHours = arrTime.includes('T') ? arrTime.split('T')[1].slice(0, 2) : '--';
         const arrMinutes = arrTime.includes('T') ? arrTime.split('T')[1].slice(2, 4) : '--';
 
+        const publicTransportSections = journey.sections?.filter(sec => sec.type === 'public_transport') || [];
+        const trainCode = publicTransportSections.map(sec => sec.display_informations?.code || '').filter(Boolean).join(' + ') || 'Train';
+        
         return {
             id: idx,
             time: `${depHours}:${depMinutes}`,
@@ -90,7 +93,7 @@ if (!depStationData.id || !arrStationData.id) {
             destination: arrStationData.name,
             departure: depStationData.name,
             duration: `${Math.floor(journey.duration / 60)}min`,
-            trainNumber: journey.sections?.[0]?.display_informations?.code || 'Train',
+            trainNumber: trainCode,
             sections: journey.sections || []
         };
     });
