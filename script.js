@@ -1,5 +1,6 @@
 class TrainScheduleApp {
     constructor() {
+        this.apiBase = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
         this.currentTab = 'outbound';
         this.departureStation = '';
         this.arrivalStation = '';
@@ -92,7 +93,7 @@ class TrainScheduleApp {
 
     async loadTrains(departure, arrival, datetime, offset, lastTime = null) {
         try {
-            let url = `http://localhost:3000/api/trains?departure=${encodeURIComponent(departure)}&arrival=${encodeURIComponent(arrival)}&datetime=${datetime}&offset=${offset}`;
+            let url = `${this.apiBase}/api/trains?departure=${encodeURIComponent(departure)}&arrival=${encodeURIComponent(arrival)}&datetime=${datetime}&offset=${offset}`;
             if (lastTime) {
                 url += `&lastTime=${encodeURIComponent(lastTime)}`;
             }
@@ -156,7 +157,7 @@ class TrainScheduleApp {
 
     async fetchTrainSchedule(departure, arrival, datetime) {
         try {
-            const response = await fetch(`http://localhost:3000/api/trains?departure=${encodeURIComponent(departure)}&arrival=${encodeURIComponent(arrival)}&datetime=${datetime}`);
+            const response = await fetch(`${this.apiBase}/api/trains?departure=${encodeURIComponent(departure)}&arrival=${encodeURIComponent(arrival)}&datetime=${datetime}`);
             
             if (!response.ok) {
                 throw new Error(`Erreur: ${response.status}`);
@@ -357,6 +358,9 @@ class TrainScheduleApp {
             detailsEl.innerHTML = '<div class="detail-section">Aucun détail disponible</div>';
         } else {
 let transportMode = train.sections[0]?.mode || train.sections[0]?.type || '';
+        if (transportMode.toLowerCase() === 'walking') {
+            transportMode = train.sections.find(s => s.mode?.toLowerCase() !== 'walking')?.mode || 'Train';
+        }
         let html = `<div class="detail-train-number">Train ${transportMode.toLowerCase()} n° ${train.trainNumber || 'N/A'}</div>`;
         train.sections.forEach((sec, idx) => {
             if (sec.stops && sec.stops.length > 0) {
