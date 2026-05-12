@@ -353,9 +353,14 @@ class TrainScheduleApp {
         const trains = type === 'outbound' ? this.lastOutboundTrains : this.lastReturnTrains;
         const idx = parseInt(trainId.split('-').pop());
         const train = trains[idx];
-        if (!train) return;
+        if (!train) {
+            detailsEl.innerHTML = '<div class="detail-section">Train non trouvé</div>';
+            detailsEl.style.display = 'block';
+            return;
+        }
+        console.log('Train sections:', JSON.stringify(train.sections, null, 2));
         if (!train.sections || train.sections.length === 0) {
-            detailsEl.innerHTML = '<div class="detail-section">Aucun détail disponible</div>';
+            detailsEl.innerHTML = '<div class="detail-section">Aucun détail disponible - sections vides</div>';
         } else {
             let html = '';
             train.sections.forEach((sec, idx) => {
