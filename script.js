@@ -353,17 +353,22 @@ class TrainScheduleApp {
         const trains = type === 'outbound' ? this.lastOutboundTrains : this.lastReturnTrains;
         const idx = parseInt(trainId.split('-').pop());
         const train = trains[idx];
+        console.log('Train details - idx:', idx, 'train:', train);
         if (!train) {
             detailsEl.innerHTML = '<div class="detail-section">Train non trouvé</div>';
             detailsEl.style.display = 'block';
             return;
         }
-        console.log('Train:', train.time, 'trainNumber:', train.trainNumber, 'sections:', JSON.stringify(train.sections, null, 2));
+        console.log('Train:', train.time, 'trainNumber:', train.trainNumber, 'sections count:', train.sections?.length);
+        
         if (!train.sections || train.sections.length === 0) {
-            detailsEl.innerHTML = '<div class="detail-section">Aucun détail disponible</div>';
+            console.log('No sections in train');
+            detailsEl.innerHTML = '<div class="detail-section">Aucun détail disponible - sections vides</div>';
         } else {
             let html = '';
+            console.log('Sections:', JSON.stringify(train.sections.slice(0,2), null, 2));
             const publicTransportSections = train.sections.filter(sec => sec.type === 'public_transport' && sec.stops && sec.stops.length > 0);
+            console.log('Public transport sections:', publicTransportSections.length);
             const trainNumbers = (train.trainNumber || '').split(' + ');
             
             publicTransportSections.forEach((sec, secIdx) => {
