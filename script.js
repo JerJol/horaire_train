@@ -362,7 +362,14 @@ class TrainScheduleApp {
         if (!train.sections || train.sections.length === 0) {
             detailsEl.innerHTML = '<div class="detail-section">Aucun détail disponible - sections vides</div>';
         } else {
+            const allTrainNumbers = train.sections
+                .map(sec => sec.display_informations?.code || '')
+                .filter(num => num)
+                .filter((num, idx, arr) => arr.indexOf(num) === idx);
             let html = '';
+            if (allTrainNumbers.length > 0) {
+                html += `<div class="detail-train-number">train fluo n° ${allTrainNumbers.join(' + ')}</div>`;
+            }
             train.sections.forEach((sec, idx) => {
                 if (sec.stops && sec.stops.length > 0) {
                     let secTrainNum = sec.display_informations?.code || sec.display_informations?.headsign || '';
