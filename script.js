@@ -357,15 +357,16 @@ class TrainScheduleApp {
         if (!train.sections || train.sections.length === 0) {
             detailsEl.innerHTML = '<div class="detail-section">Aucun détail disponible</div>';
         } else {
-let transportMode = train.sections[0]?.mode || train.sections[0]?.type || '';
-        if (transportMode.toLowerCase() === 'walking') {
-            transportMode = train.sections.find(s => s.mode?.toLowerCase() !== 'walking')?.mode || 'Train';
-        }
-        let html = `<div class="detail-train-number">Train ${transportMode.toLowerCase()} n° ${train.trainNumber || 'N/A'}</div>`;
+let transportMode = train.sections.find(s => s.mode?.toLowerCase() !== 'walking')?.mode || 'Train';
+        const trainNumbers = train.trainNumber ? train.trainNumber.split(' + ') : [];
+        let trainNumHtml = trainNumbers.length > 1 
+            ? trainNumbers.map(n => `train ${transportMode.toLowerCase()} n° ${n}`).join('<br>')
+            : `train ${transportMode.toLowerCase()} n° ${train.trainNumber || 'N/A'}`;
+        let html = `<div class="detail-train-number">${trainNumHtml}</div>`;
         train.sections.forEach((sec, idx) => {
             if (sec.stops && sec.stops.length > 0) {
-                if (idx > 0) {
-                    html += `<div class="detail-section-title">${sec.mode || sec.type}</div>`;
+                if (sec.mode && sec.mode.toLowerCase() !== 'walking' && idx > 0) {
+                    html += `<div class="detail-section-title">${sec.mode}</div>`;
                 }
                 html += sec.stops.map(stop => `
                     <div class="detail-stop">
