@@ -33,15 +33,30 @@ module.exports = async function handler(req, res) {
         return res.status(404).json({ error: 'Gares non trouvées' });
     }
 
-    const depStationData = depStation.places[0];
-    const arrStationData = arrStation.places[0];
-    const datetimeStr = searchTime.toISOString().replace(/[-:]/g, '').slice(0, 15);
+    const depStationData = depStation.places.find(p => p.stop_area || p.physical_mode === 'Rail') || depStation.places[0];
+    const arrStationData = arrStation.places.find(p => p.stop_area || p.physical_mode === 'Rail') || arrStation.places[0];
+    
+if (!depStationData.id || !arrStationData.id) {
+        return res.status(404).json({ error: 'ID de gare invalide' });
+    }
+
+    let datetimeStr = searchTime.toISOString().replace(/[-:]/g, '').slice(0, 15);
     
     let currentSearchTime = trainOffset > 0 && lastTime ? lastTime : datetimeStr;
     
     const journeysData = await callNavitia(
         `/coverage/sncf/journeys?from=${depStationData.id}&to=${arrStationData.id}&datetime=${currentSearchTime}&datetime_represents=departure&max_duration=14400&count=20&depth=3`
     );
+
+    if (!journeysData.journeys || journeysData.journeys.length === 0) {
+        return res.json({
+            trains: [],
+            returnTrains: [],
+            offset: trainOffset,
+            totalTrains: 0,
+            message: 'Aucun train trouvé pour cet horaire'
+        });
+    }
 
     const allJourneys = journeysData.journeys || [];
     const trainsPerPage = trainOffset === 0 ? 3 : 1;
