@@ -1,5 +1,3 @@
-const fetch = require('node-fetch');
-
 const NAVITIA_TOKEN = process.env.NAVITIA_TOKEN || '';
 
 async function callNavitia(endpoint) {
@@ -9,6 +7,10 @@ async function callNavitia(endpoint) {
             'Content-Type': 'application/json'
         }
     });
+    if (!response.ok) {
+        const err = await response.text();
+        throw new Error(`Navitia API error: ${response.status} - ${err}`);
+    }
     return response.json();
 }
 
@@ -74,6 +76,10 @@ module.exports = async function handler(req, res) {
         });
     } catch (error) {
         console.error('Error:', error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ 
+            error: error.message,
+            tokenPresent: !!NAVITIA_TOKEN,
+            stack: error.stack
+        });
     }
 };
