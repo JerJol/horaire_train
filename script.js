@@ -6,7 +6,8 @@ class TrainScheduleApp {
         this.searchDateTime = '';
         this.defaultSettings = {
             departure: '',
-            arrival: ''
+            arrival: '',
+            minConnectionTime: 5
         };
         
         this.init();
@@ -89,9 +90,13 @@ class TrainScheduleApp {
         }
     }
 
-    async loadTrains(departure, arrival, datetime, offset) {
+    async loadTrains(departure, arrival, datetime, offset, lastTime = null) {
         try {
-            const response = await fetch(`http://localhost:3000/api/trains?departure=${encodeURIComponent(departure)}&arrival=${encodeURIComponent(arrival)}&datetime=${datetime}&offset=${offset}`);
+            let url = `http://localhost:3000/api/trains?departure=${encodeURIComponent(departure)}&arrival=${encodeURIComponent(arrival)}&datetime=${datetime}&offset=${offset}`;
+            if (lastTime) {
+                url += `&lastTime=${encodeURIComponent(lastTime)}`;
+            }
+            const response = await fetch(url);
             
             if (!response.ok) {
                 throw new Error(`Erreur: ${response.status}`);
@@ -114,6 +119,10 @@ class TrainScheduleApp {
             this.totalTrains = data.totalTrains || 0;
             this.totalReturnTrains = data.totalReturnTrains || 0;
             
+            if (data.lastDepartureTime) {
+                this.lastDepartureTime = data.lastDepartureTime;
+            }
+            
             const hasMoreOutbound = this.lastOutboundTrains.length < this.totalTrains;
             const hasMoreReturn = this.lastReturnTrains.length < this.totalReturnTrains;
             
@@ -126,7 +135,7 @@ class TrainScheduleApp {
 
     async loadNextTrains(departure, arrival, datetime) {
         const nextOffset = this.currentOffset + 1;
-        await this.loadTrains(departure, arrival, datetime, nextOffset);
+        await this.loadTrains(departure, arrival, datetime, nextOffset, this.lastDepartureTime);
     }
 
     async loadNextTrainsFromUI() {
@@ -250,6 +259,7 @@ class TrainScheduleApp {
     showSettings() {
         document.getElementById('default-departure').value = this.defaultSettings.departure || '';
         document.getElementById('default-arrival').value = this.defaultSettings.arrival || '';
+        document.getElementById('min-connection-time').value = this.defaultSettings.minConnectionTime || 5;
         document.getElementById('settings-modal').style.display = 'block';
     }
 
@@ -264,6 +274,7 @@ class TrainScheduleApp {
     saveSettings() {
         this.defaultSettings.departure = document.getElementById('default-departure').value.trim();
         this.defaultSettings.arrival = document.getElementById('default-arrival').value.trim();
+        this.defaultSettings.minConnectionTime = parseInt(document.getElementById('min-connection-time').value) || 5;
 
         this.saveSettingsToStorage();
         this.loadDefaultStations();
@@ -314,18 +325,24 @@ class TrainScheduleApp {
     }
 
     showJourneyDetails(type, trainId) {
+        const detailsEl = document.getElementById(`details-${type}-${trainId}`);
+        const isVisible = detailsEl.style.display === 'block';
+        
         const allDetails = document.querySelectorAll('.train-details');
         allDetails.forEach(el => el.style.display = 'none');
+        
+        if (isVisible) {
+            return;
+        }
         
         const trains = type === 'outbound' ? this.lastOutboundTrains : this.lastReturnTrains;
         if (!trains || !trains[trainId]) return;
         
         const train = trains[trainId];
-        const detailsEl = document.getElementById(`details-${type}-${trainId}`);
         if (!train.sections || train.sections.length === 0) {
             detailsEl.innerHTML = '<div class="detail-section">Aucun détail disponible</div>';
         } else {
-            let html = '';
+            let html = `<div class="detail-train-number">Train: ${train.trainNumber || 'N/A'}</div>`;
             train.sections.forEach((sec, idx) => {
                 if (sec.stops && sec.stops.length > 0) {
                     html += `<div class="detail-section-title">${sec.mode || sec.type}</div>`;

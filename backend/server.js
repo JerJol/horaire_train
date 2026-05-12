@@ -9,14 +9,14 @@ const PORT = process.env.PORT || 3000;
 
 const API_KEY = process.env.SNCF_API_KEY || '';
 console.log('API Key chargée:', API_KEY ? 'OUI (' + API_KEY.substring(0,8) + '...)' : 'NON');
-const BASE_URL = 'https://api.sncf.com/v1';
+const BASE_URL = 'https://api.navitia.io/v1';
 
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..')));
 
 async function callNavitia(endpoint) {
-    const url = `https://${API_KEY}@api.sncf.com/v1${endpoint}`;
+    const url = `https://${API_KEY}@api.navitia.io/v1${endpoint}`;
     console.log(`API Call: ${endpoint}`);
     const response = await fetch(url, {
         headers: {
@@ -48,7 +48,7 @@ async function findStation(query) {
 }
 
 app.get('/api/trains', async (req, res) => {
-    const { departure, arrival, datetime, offset } = req.query;
+    const { departure, arrival, datetime, offset, lastTime } = req.query;
     const trainOffset = parseInt(offset) || 0;
 
     if (!departure || !arrival || !datetime) {
@@ -111,10 +111,10 @@ app.get('/api/trains', async (req, res) => {
                 
                 if (!lastDepTime) break;
                 
-                const lastTime = new Date(lastDepTime.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})/, '$1-$2-$3T$4:$5:$6'));
-                lastTime.setMinutes(lastTime.getMinutes() + 5);
+                const nextTime = new Date(lastDepTime.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})/, '$1-$2-$3T$4:$5:$6'));
+                nextTime.setMinutes(nextTime.getMinutes() + 5);
                 
-                const nextSearchTime = lastTime.toISOString().replace(/[-:]/g, '').slice(0, 15);
+                const nextSearchTime = nextTime.toISOString().replace(/[-:]/g, '').slice(0, 15);
                 
                 journeysData = await callNavitia(
                     `/coverage/sncf/journeys?from=${depStation.id}&to=${arrStation.id}&datetime=${nextSearchTime}&datetime_represents=departure&max_duration=14400&count=${fetchCount}&depth=3`
@@ -135,10 +135,6 @@ app.get('/api/trains', async (req, res) => {
         
         const trains = [];
         if (allJourneys.length > 0) {
-            const firstJourney = allJourneys[0];
-            const transportSection = firstJourney?.sections?.find(sec => sec.type === 'public_transport');
-            const firstSectionTrainCode = transportSection?.display_informations?.headsign || transportSection?.display_informations?.code || '';
-            
             const validJourneys = allJourneys.filter(j => {
                 const depTime = j.departure_date_time || '';
                 const depDate = new Date(depTime.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})/, '$1-$2-$3T$4:$5:$6'));
@@ -154,8 +150,16 @@ app.get('/api/trains', async (req, res) => {
                 const arrHours = arrTime.includes('T') ? arrTime.split('T')[1].slice(0, 2) : '--';
                 const arrMinutes = arrTime.includes('T') ? arrTime.split('T')[1].slice(2, 4) : '--';
 
-                const trainCode = journey.display_informations?.headsign || journey.display_informations?.code || 'Train';
-                const lineCode = trainCode;
+                const publicTransportSections = journey.sections?.filter(sec => sec.type === 'public_transport') || [];
+                const journeyTrainCode = publicTransportSections.map(sec => {
+                    const vehicleJourneyLink = sec.links?.find(l => l.type === 'vehicle_journey');
+                    if (vehicleJourneyLink?.id) {
+                        const match = vehicleJourneyLink.id.match(/vehicle_journey:SNCF:\d{4}-\d{2}-\d{2}:(\d+):/);
+                        if (match) return match[1];
+                    }
+                    return sec.display_informations?.code || sec.display_informations?.headsign || '';
+                }).filter(Boolean).join(' + ') || 'Train';
+                const lineCode = journeyTrainCode;
                 
                 const durationSec = journey.duration || 0;
                 const durHours = Math.floor(durationSec / 3600);
@@ -207,8 +211,8 @@ app.get('/api/trains', async (req, res) => {
                     destination: arrStation.name,
                     departure: depStation.name,
                     duration: durationStr,
-                    trainNumber: firstSectionTrainCode || trainCode,
-                    line: firstSectionTrainCode || trainCode,
+                    trainNumber: journeyTrainCode,
+                    line: lineCode,
                     platform: '',
                     sections: sections
                 });
@@ -219,7 +223,7 @@ app.get('/api/trains', async (req, res) => {
         
         let returnFetchedJourneys = [];
         
-        const returnJourneysData = await callNavitia(
+        let returnJourneysData = await callNavitia(
             `/coverage/sncf/journeys?from=${arrStation.id}&to=${depStation.id}&datetime=${datetimeStr}&datetime_represents=departure&max_duration=14400&count=${fetchCount}&depth=3`
         );
         
@@ -232,10 +236,10 @@ app.get('/api/trains', async (req, res) => {
                 
                 if (!lastDepTime) break;
                 
-                const lastTime = new Date(lastDepTime.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})/, '$1-$2-$3T$4:$5:$6'));
-                lastTime.setMinutes(lastTime.getMinutes() + 5);
+                const nextTime = new Date(lastDepTime.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})/, '$1-$2-$3T$4:$5:$6'));
+                nextTime.setMinutes(nextTime.getMinutes() + 5);
                 
-                const nextSearchTime = lastTime.toISOString().replace(/[-:]/g, '').slice(0, 15);
+                const nextSearchTime = nextTime.toISOString().replace(/[-:]/g, '').slice(0, 15);
                 
                 returnJourneysData = await callNavitia(
                     `/coverage/sncf/journeys?from=${arrStation.id}&to=${depStation.id}&datetime=${nextSearchTime}&datetime_represents=departure&max_duration=14400&count=${fetchCount}&depth=3`
@@ -253,16 +257,11 @@ app.get('/api/trains', async (req, res) => {
 
         const returnTrains = [];
         if (allReturnJourneys.length > 0) {
-            const returnTransportSection = allReturnJourneys[0]?.sections?.find(sec => sec.type === 'public_transport');
-            const returnSectionTrainCode = returnTransportSection?.display_informations?.headsign || returnTransportSection?.display_informations?.code || '';
-            
             const validReturnJourneys = allReturnJourneys.filter(j => {
                 const depTime = j.departure_date_time || '';
                 const depDate = new Date(depTime.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})/, '$1-$2-$3T$4:$5:$6'));
                 return depDate >= filterTime;
             });
-            
-            const returnTrainCode = validReturnJourneys[0]?.sections?.find(sec => sec.type === 'public_transport')?.display_informations?.headsign || '';
             
             validReturnJourneys.slice(startIdx, startIdx + trainsPerPage).forEach((journey, idx) => {
                 const depTime = journey.departure_date_time || '';
@@ -273,8 +272,16 @@ app.get('/api/trains', async (req, res) => {
                 const arrHours = arrTime.includes('T') ? arrTime.split('T')[1].slice(0, 2) : '--';
                 const arrMinutes = arrTime.includes('T') ? arrTime.split('T')[1].slice(2, 4) : '--';
 
-                const trainCode = journey.display_informations?.headsign || journey.display_informations?.code || 'Train';
-                const lineCode = trainCode;
+                const publicTransportSections = journey.sections?.filter(sec => sec.type === 'public_transport') || [];
+                const journeyTrainCode = publicTransportSections.map(sec => {
+                    const vehicleJourneyLink = sec.links?.find(l => l.type === 'vehicle_journey');
+                    if (vehicleJourneyLink?.id) {
+                        const match = vehicleJourneyLink.id.match(/vehicle_journey:SNCF:\d{4}-\d{2}-\d{2}:(\d+):/);
+                        if (match) return match[1];
+                    }
+                    return sec.display_informations?.code || sec.display_informations?.headsign || '';
+                }).filter(Boolean).join(' + ') || 'Train';
+                const lineCode = journeyTrainCode;
                 
                 const durationSec = journey.duration || 0;
                 const durHours = Math.floor(durationSec / 3600);
@@ -326,8 +333,8 @@ app.get('/api/trains', async (req, res) => {
                     destination: depStation.name,
                     departure: arrStation.name,
                     duration: durationStr,
-                    trainNumber: returnTrainCode || trainCode,
-                    line: returnTrainCode || trainCode,
+                    trainNumber: journeyTrainCode,
+                    line: lineCode,
                     platform: '',
                     sections: sections
                 });
@@ -340,6 +347,12 @@ app.get('/api/trains', async (req, res) => {
         const paginatedTrains = allTrains;
         const paginatedReturnTrains = allReturnTrains;
         
+        let lastDepartureTime = '';
+        if (allJourneys.length > 0) {
+            const lastJourney = allJourneys[allJourneys.length - 1];
+            lastDepartureTime = lastJourney?.departure_date_time || '';
+        }
+        
         res.json({ 
             trains: paginatedTrains, 
             returnTrains: paginatedReturnTrains, 
@@ -347,7 +360,8 @@ app.get('/api/trains', async (req, res) => {
             arrivalStation: arrStation, 
             offset: trainOffset,
             totalTrains: allTrains.length,
-            totalReturnTrains: allReturnTrains.length
+            totalReturnTrains: allReturnTrains.length,
+            lastDepartureTime: lastDepartureTime
         });
     } catch (error) {
         console.error('Erreur:', error.message);

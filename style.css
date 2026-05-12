@@ -312,6 +312,16 @@ h1 {
     border-left: 3px solid #667eea;
 }
 
+.detail-train-number {
+    font-weight: 600;
+    color: #667eea;
+    padding: 8px 12px;
+    background: #f0f4ff;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    font-size: 0.95em;
+}
+
 .detail-section {
     display: flex;
     align-items: center;
