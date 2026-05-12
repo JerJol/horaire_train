@@ -357,38 +357,28 @@ class TrainScheduleApp {
         if (!train.sections || train.sections.length === 0) {
             detailsEl.innerHTML = '<div class="detail-section">Aucun détail disponible</div>';
         } else {
-let transportMode = train.sections.find(s => s.mode?.toLowerCase() !== 'walking')?.mode || 'Train';
-        const trainNumbers = train.trainNumber ? train.trainNumber.split(' + ') : [];
-        let trainNumHtml = trainNumbers.length > 1 
-            ? trainNumbers.map(n => `train ${transportMode.toLowerCase()} n° ${n}`).join('<br>')
-            : `train ${transportMode.toLowerCase()} n° ${train.trainNumber || 'N/A'}`;
-        let html = `<div class="detail-train-number">${trainNumHtml}</div>`;
-        train.sections.forEach((sec, idx) => {
-            if (sec.stops && sec.stops.length > 0) {
-                if (idx === 0 || (sec.type === 'public_transport')) {
+            let html = '';
+            train.sections.forEach((sec, idx) => {
+                if (sec.stops && sec.stops.length > 0) {
                     const secTrainNum = sec.display_informations?.code || '';
-                    const modeLabel = sec.type === 'public_transport' && secTrainNum 
-                        ? `train fluo n° ${secTrainNum}` 
-                        : (sec.mode || '');
-                    html += `<div class="detail-section-title">${modeLabel}</div>`;
-                }
-                html += sec.stops.map(stop => `
-                    <div class="detail-stop">
-                        <span class="detail-stop-time">${this.formatTime(stop.time)}</span>
-                        <span class="detail-stop-name">${stop.name}</span>
-                    </div>
-                `).join('');
-            } else {
-                    if (sec.departure && sec.departure !== sec.arrival) {
-                        html += `
-                            <div class="detail-section">
-                                <span class="detail-mode">${sec.mode || sec.type}</span>
-                                <span class="detail-time">${sec.departureTime || '--:--'}</span>
-                                <span class="detail-station">${sec.departure}</span>
-                                ${sec.arrival ? `→ <span class="detail-station">${sec.arrival}</span> <span class="detail-time">${sec.arrivalTime || '--:--'}</span>` : ''}
-                            </div>
-                        `;
+                    if (secTrainNum) {
+                        html += `<div class="detail-section-title">train fluo n° ${secTrainNum}</div>`;
                     }
+                    html += sec.stops.map(stop => `
+                        <div class="detail-stop">
+                            <span class="detail-stop-time">${this.formatTime(stop.time)}</span>
+                            <span class="detail-stop-name">${stop.name}</span>
+                        </div>
+                    `).join('');
+                } else if (sec.departure && sec.departure !== sec.arrival) {
+                    html += `
+                        <div class="detail-section">
+                            <span class="detail-mode">${sec.mode || sec.type}</span>
+                            <span class="detail-time">${sec.departureTime || '--:--'}</span>
+                            <span class="detail-station">${sec.departure}</span>
+                            ${sec.arrival ? `→ <span class="detail-station">${sec.arrival}</span> <span class="detail-time">${sec.arrivalTime || '--:--'}</span>` : ''}
+                        </div>
+                    `;
                 }
             });
             detailsEl.innerHTML = html;
