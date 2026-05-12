@@ -1,4 +1,4 @@
-const { searchTrains } = require('./api/core');
+const { searchTrains } = require('./core');
 
 module.exports = async function handler(req, res) {
     try {
