@@ -106,11 +106,11 @@ class TrainScheduleApp {
             console.log('API Response:', JSON.stringify(data, null, 2));
             
             if (offset === 0) {
-                this.cumulativeOutboundTrains = data.trains || [];
-                this.cumulativeReturnTrains = data.returnTrains || [];
+                this.cumulativeOutboundTrains = (data.trains || []).sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+                this.cumulativeReturnTrains = (data.returnTrains || []).sort((a, b) => (a.time || '').localeCompare(b.time || ''));
             } else {
-                this.cumulativeOutboundTrains = [...(this.cumulativeOutboundTrains || []), ...(data.trains || [])];
-                this.cumulativeReturnTrains = [...(this.cumulativeReturnTrains || []), ...(data.returnTrains || [])];
+                this.cumulativeOutboundTrains = [...(this.cumulativeOutboundTrains || []), ...(data.trains || [])].sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+                this.cumulativeReturnTrains = [...(this.cumulativeReturnTrains || []), ...(data.returnTrains || [])].sort((a, b) => (a.time || '').localeCompare(b.time || ''));
             }
             
             this.lastOutboundTrains = this.cumulativeOutboundTrains;
@@ -219,8 +219,10 @@ class TrainScheduleApp {
             return;
         }
 
-        container.innerHTML = `<div class="trains-results">` + trains.map(train => `
-            <div class="train-item" onclick="app.showJourneyDetails('${type}', ${train.id})">
+        container.innerHTML = `<div class="trains-results">` + trains.map((train, idx) => {
+            const uniqueId = `${type}-${idx}`;
+            return `
+            <div class="train-item" onclick="app.showJourneyDetails('${type}', '${uniqueId}')">
                 <div class="train-info">
                     <div>
                         <div class="train-time">${train.time || '--:--'}${train.arrivalTime && train.arrivalTime !== train.time && train.arrivalTime !== '--' ? ' → ' + train.arrivalTime : ''}</div>
@@ -228,9 +230,9 @@ class TrainScheduleApp {
                     </div>
                     <div class="train-duration">${train.duration || ''}</div>
                 </div>
-                <div id="details-${type}-${train.id}" class="train-details" style="display: none;"></div>
+                <div id="details-${uniqueId}" class="train-details" style="display: none;"></div>
             </div>
-        `).join('') + `<button class="next-btn" onclick="app.loadNextTrainsFromUI()">Suivant →</button></div>`;
+        `}).join('') + `<button class="next-btn" onclick="app.loadNextTrainsFromUI()">Suivant →</button></div>`;
     }
 
     getDisplayStations(type) {
@@ -325,7 +327,9 @@ class TrainScheduleApp {
     }
 
     showJourneyDetails(type, trainId) {
-        const detailsEl = document.getElementById(`details-${type}-${trainId}`);
+        const detailsEl = document.getElementById(`details-${trainId}`);
+        if (!detailsEl) return;
+        
         const isVisible = detailsEl.style.display === 'block';
         
         const allDetails = document.querySelectorAll('.train-details');
@@ -336,23 +340,26 @@ class TrainScheduleApp {
         }
         
         const trains = type === 'outbound' ? this.lastOutboundTrains : this.lastReturnTrains;
-        if (!trains || !trains[trainId]) return;
-        
-        const train = trains[trainId];
+        const idx = parseInt(trainId.split('-').pop());
+        const train = trains[idx];
+        if (!train) return;
         if (!train.sections || train.sections.length === 0) {
             detailsEl.innerHTML = '<div class="detail-section">Aucun détail disponible</div>';
         } else {
-            let html = `<div class="detail-train-number">Train: ${train.trainNumber || 'N/A'}</div>`;
-            train.sections.forEach((sec, idx) => {
-                if (sec.stops && sec.stops.length > 0) {
+let transportMode = train.sections[0]?.mode || train.sections[0]?.type || '';
+        let html = `<div class="detail-train-number">Train ${transportMode.toLowerCase()} n° ${train.trainNumber || 'N/A'}</div>`;
+        train.sections.forEach((sec, idx) => {
+            if (sec.stops && sec.stops.length > 0) {
+                if (idx > 0) {
                     html += `<div class="detail-section-title">${sec.mode || sec.type}</div>`;
-                    html += sec.stops.map(stop => `
-                        <div class="detail-stop">
-                            <span class="detail-stop-time">${this.formatTime(stop.time)}</span>
-                            <span class="detail-stop-name">${stop.name}</span>
-                        </div>
-                    `).join('');
-                } else {
+                }
+                html += sec.stops.map(stop => `
+                    <div class="detail-stop">
+                        <span class="detail-stop-time">${this.formatTime(stop.time)}</span>
+                        <span class="detail-stop-name">${stop.name}</span>
+                    </div>
+                `).join('');
+            } else {
                     if (sec.departure && sec.departure !== sec.arrival) {
                         html += `
                             <div class="detail-section">
