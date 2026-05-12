@@ -8,8 +8,20 @@ Application web de recherche d'horaires de trains TER/Fluo utilisant l'API Navit
 |---------|------|
 | `index.html` | Page principale - interface utilisateur (titre, formulaire de recherche, liste des résultats) |
 | `script.js` | Logique frontend - gestion des événements, appels API, affichage des résultats |
-| `server.js` | Serveur local Express - API pour le développement local |
-| `api/trains.js` | API Vercel (Serverless) - même logique que server.js pour la production |
+| `server.js` | Serveur Express local - **même logique** que api/trains.js |
+| `api/trains.js` | Fonction serverless Vercel - **même logique** que server.js |
+
+### API locales vs production
+
+**Attention**: Ces deux fichiers ont **la même fonctionnalité** (logique de recherche de trains). Seul l'environnement d'exécution change:
+
+| Fichier | Environnement | Framework |
+|---------|--------------|-----------|
+| `server.js` | Local (`npm start`) | Express.js |
+| `api/trains.js` | Vercel (production) | Serverless Functions |
+
+**Pourquoi deux fichiers?**  
+Vercel ne peut pas exécuter `server.js` directement. Il lit les fichiers dans le dossier `api/` et les transforme en fonctions serverless. La logique est identique dans les deux.
 | `.env.local` | Variables d'environnement locales (clé API) - **non versionné** |
 | `package.json` | Dépendances npm pour le serveur local |
 
