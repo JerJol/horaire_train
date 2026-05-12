@@ -360,7 +360,14 @@ class TrainScheduleApp {
             let html = '';
             train.sections.forEach((sec, idx) => {
                 if (sec.stops && sec.stops.length > 0) {
-                    const secTrainNum = sec.display_informations?.code || '';
+                    let secTrainNum = sec.display_informations?.code || sec.display_informations?.headsign || '';
+                    if (!secTrainNum && sec.links) {
+                        const vjLink = sec.links.find(l => l.type === 'vehicle_journey');
+                        if (vjLink?.id) {
+                            const match = vjLink.id.match(/vehicle_journey:SNCF:\d{4}-\d{2}-\d{2}:(\d+):/);
+                            if (match) secTrainNum = match[1];
+                        }
+                    }
                     if (secTrainNum) {
                         html += `<div class="detail-section-title">train fluo n° ${secTrainNum}</div>`;
                     }
