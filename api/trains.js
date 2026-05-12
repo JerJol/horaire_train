@@ -145,6 +145,32 @@ if (!depStationData.id || !arrStationData.id) {
         const arrHours = arrTime.includes('T') ? arrTime.split('T')[1].slice(0, 2) : '--';
         const arrMinutes = arrTime.includes('T') ? arrTime.split('T')[1].slice(2, 4) : '--';
         
+        const publicTransportSectionsReturn = journey.sections?.filter(sec => sec.type === 'public_transport') || [];
+        const trainCodeReturn = publicTransportSectionsReturn.map(sec => 
+            sec.display_informations?.headsign ||
+            sec.display_informations?.trip_short_name ||
+            sec.display_informations?.code ||
+            ''
+        ).filter(Boolean).join(' + ') || 'Train';
+        
+        const formattedSectionsReturn = (journey.sections || []).map(sec => {
+            const isPublicTransport = sec.type === 'public_transport';
+            const trainNum = sec.display_informations?.headsign || sec.display_informations?.trip_short_name || '';
+            
+            if (isPublicTransport && sec.stop_date_times && sec.stop_date_times.length > 0) {
+                return {
+                    ...sec,
+                    display_informations: { code: trainNum },
+                    stops: sec.stop_date_times.map(stop => ({
+                        name: stop.stop_point?.name || stop.stop_point?.label || '',
+                        time: formatSectionTime(stop.departure_date_time),
+                        arrivalTime: formatSectionTime(stop.arrival_date_time)
+                    }))
+                };
+            }
+            return sec;
+        });
+        
         return {
             id: idx,
             time: `${depHours}:${depMinutes}`,
@@ -152,8 +178,8 @@ if (!depStationData.id || !arrStationData.id) {
             destination: depStationData.name,
             departure: arrStationData.name,
             duration: `${Math.floor(journey.duration / 60)}min`,
-            trainNumber: journey.sections?.[0]?.display_informations?.code || 'Train',
-            sections: journey.sections || []
+            trainNumber: trainCodeReturn,
+            sections: formattedSectionsReturn
         };
     });
 
